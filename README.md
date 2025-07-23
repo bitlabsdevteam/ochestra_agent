@@ -93,6 +93,7 @@ Key environment variables include:
 - `OPENAI_API_KEY`: Your OpenAI API key for embedding models
 - `GEMINI_API_KEY`: Your Google Gemini API key
 - `HUGGINGFACE_API_KEY`: Your Hugging Face API key
+- `WEATHERAPI_KEY`: Your WeatherAPI.com API key for weather data
 - `PINECONE_API_KEY`: Your Pinecone API key for vector database
 - `PINECONE_ENVIRONMENT`: Your Pinecone environment (default: gcp-starter)
 - `PINECONE_INDEX_NAME`: Name of your Pinecone index (default: sales-maker-index)
