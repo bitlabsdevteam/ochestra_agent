@@ -24,9 +24,9 @@ class VectorDBManager:
             provider_name (str): The name of the embedding provider (e.g., 'openai', 'huggingface', 'gemini')
         """
         self.provider_name = provider_name.lower()
-        self.pinecone_api_key = os.environ.get('PINECONE_API_KEY')
-        self.pinecone_environment = os.environ.get('PINECONE_ENVIRONMENT', 'gcp-starter')
-        self.index_name = os.environ.get('PINECONE_INDEX_NAME', 'sales-maker-index')
+        self.pinecone_api_key = os.environ.get('PINECONE_API_KEY') or os.environ.get('PINECODE_API_KEY')
+        self.pinecone_environment = os.environ.get('PINECONE_ENVIRONMENT') or os.environ.get('PINECODE_ENVIRONMENT', 'gcp-starter')
+        self.index_name = os.environ.get('PINECONE_INDEX_NAME') or os.environ.get('PINECODE_INDEX_NAME', 'sales-maker-index')
         self.dimension = self._get_dimension_for_provider()
         
         # Load API keys from environment variables

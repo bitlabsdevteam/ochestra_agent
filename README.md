@@ -188,7 +188,7 @@ The `VectorDBManager` class in `memory/pinecode/vectordb_manager.py` provides th
 ### Example Usage
 
 ```python
-from memory.pinecode.vectordb_manager import VectorDBManager
+from memory.pinecone.vectordb_manager import VectorDBManager
 from langchain.schema.document import Document
 
 # Initialize with your preferred embedding provider

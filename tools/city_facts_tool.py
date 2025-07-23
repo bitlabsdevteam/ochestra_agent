@@ -3,7 +3,7 @@
 This module provides a tool to get facts about cities using the Wikipedia API.
 """
 
-import wikipedia as wikipediaapi
+import wikipediaapi
 from typing import Dict, Any, Optional, Type, List
 from pydantic import BaseModel, Field
 from langchain.tools import BaseTool, tool
@@ -17,6 +17,7 @@ class CityFactsTool(BaseTool):
     name: str = "city_facts"
     description: str = "Useful for getting information and facts about a specific city. Input should be a city name."
     args_schema: Type[BaseModel] = CityFactsInput
+    wiki: Any = None
     
     def __init__(self, **kwargs):
         super().__init__(**kwargs)

@@ -5,8 +5,8 @@ from dotenv import load_dotenv
 import os
 
 # Import VectorDB integration
-from memory.pinecode.api_integration import register_vectordb_routes
-from memory.pinecode.vectordb_manager import VectorDBManager
+from memory.pinecone.api_integration import register_vectordb_routes
+from memory.pinecone.vectordb_manager import VectorDBManager
 
 # Load environment variables from .env file
 load_dotenv()

@@ -11,7 +11,7 @@ class PromptLibrary:
     """
     
     @staticmethod
-    def get_rag_prompt() -> str:
+    def get_default_rag_prompt() -> str:
         """Get the RAG prompt template as a string.
         
         Returns:
@@ -57,7 +57,7 @@ class PromptLibrary:
         ## User Query
         {user_query}
         
-        Think step by step to create the best travel plan for this query.
+        Think step by step to create the best travel plan for this query. If you don't know just say you don't know.
         """
         
     @staticmethod
