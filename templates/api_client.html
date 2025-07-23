@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sales Maker API Client</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css">
+    <style>
+        body {
+            padding: 20px;
+            background-color: #f8f9fa;
+        }
+        .container {
+            max-width: 800px;
+            background-color: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 0 10px rgba(0,0,0,0.1);
+        }
+        .result-container {
+            background-color: #f8f9fa;
+            border-radius: 5px;
+            padding: 15px;
+            margin-top: 20px;
+        }
+        pre {
+            background-color: #f1f1f1;
+            padding: 10px;
+            border-radius: 5px;
+            overflow-x: auto;
+        }
+        h1 {
+            color: #0d6efd;
+            margin-bottom: 30px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1 class="text-center">Sales Maker API Client</h1>
+        
+        <div class="mb-4">
+            <h3>API Endpoints</h3>
+            <div class="list-group">
+                <button class="list-group-item list-group-item-action" onclick="callHomeEndpoint()">Home Endpoint</button>
+                <button class="list-group-item list-group-item-action" onclick="callProvidersEndpoint()">Get Providers</button>
+                <button class="list-group-item list-group-item-action" onclick="callHealthEndpoint()">Health Check</button>
+            </div>
+        </div>
+        
+        <div class="mb-4">
+            <h3>Get Embedding Model</h3>
+            <div class="input-group mb-3">
+                <select class="form-select" id="providerSelect">
+                    <option value="" selected disabled>Select a provider</option>
+                    <option value="openAI">OpenAI</option>
+                    <option value="huggingface">Hugging Face</option>
+                    <option value="gemini">Google Gemini</option>
+                    <option value="other">Other Provider</option>
+                </select>
+                <input type="text" class="form-control" id="customProvider" placeholder="Custom provider name" style="display: none;">
+                <button class="btn btn-primary" onclick="getEmbeddingModel()">Get Model</button>
+            </div>
+        </div>
+        
+        <div class="result-container">
+            <h3>Response</h3>
+            <pre id="responseOutput">No response yet. Click one of the buttons above to make an API call.</pre>
+            <div id="apiKeyStatus" class="mt-3" style="display: none;">
+                <h4>API Key Status</h4>
+                <div class="alert" id="apiKeyAlert"></div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const API_BASE_URL = 'http://localhost:8080';
+        const responseOutput = document.getElementById('responseOutput');
+        const providerSelect = document.getElementById('providerSelect');
+        const customProvider = document.getElementById('customProvider');
+        const apiKeyStatus = document.getElementById('apiKeyStatus');
+        const apiKeyAlert = document.getElementById('apiKeyAlert');
+        
+        // Show/hide custom provider input based on selection
+        providerSelect.addEventListener('change', function() {
+            if (this.value === 'other') {
+                customProvider.style.display = 'block';
+            } else {
+                customProvider.style.display = 'none';
+            }
+        });
+        
+        // Function to display API response
+        function displayResponse(data) {
+            responseOutput.textContent = JSON.stringify(data, null, 2);
+            
+            // Check if this is an embedding model response with API key info
+            if (data.hasOwnProperty('api_key_configured')) {
+                apiKeyStatus.style.display = 'block';
+                
+                if (data.api_key_configured) {
+                    apiKeyAlert.className = 'alert alert-success';
+                    apiKeyAlert.innerHTML = `<strong>✅ API Key Configured:</strong> The API key for ${data.provider} is properly configured.`;
+                } else {
+                    apiKeyAlert.className = 'alert alert-warning';
+                    apiKeyAlert.innerHTML = `<strong>⚠️ API Key Missing:</strong> ${data.warning || 'No API key configured for this provider.'}`;
+                }
+            } else {
+                apiKeyStatus.style.display = 'none';
+            }
+        }
+        
+        // Function to handle API errors
+        function handleError(error) {
+            responseOutput.textContent = `Error: ${error.message}`;
+            apiKeyStatus.style.display = 'none';
+            console.error('API Error:', error);
+        }
+        
+        // Call the home endpoint
+        function callHomeEndpoint() {
+            fetch(`${API_BASE_URL}/`)
+                .then(response => response.json())
+                .then(data => displayResponse(data))
+                .catch(error => handleError(error));
+        }
+        
+        // Call the providers endpoint
+        function callProvidersEndpoint() {
+            fetch(`${API_BASE_URL}/providers`)
+                .then(response => response.json())
+                .then(data => displayResponse(data))
+                .catch(error => handleError(error));
+        }
+        
+        // Call the health endpoint
+        function callHealthEndpoint() {
+            fetch(`${API_BASE_URL}/health`)
+                .then(response => response.json())
+                .then(data => displayResponse(data))
+                .catch(error => handleError(error));
+        }
+        
+        // Get embedding model for the selected provider
+        function getEmbeddingModel() {
+            let provider = providerSelect.value;
+            
+            // Use custom provider if 'other' is selected
+            if (provider === 'other') {
+                provider = customProvider.value;
+                if (!provider) {
+                    responseOutput.textContent = 'Please enter a custom provider name.';
+                    return;
+                }
+            }
+            
+            fetch(`${API_BASE_URL}/embedding-model?provider=${encodeURIComponent(provider)}`)
+                .then(response => response.json())
+                .then(data => displayResponse(data))
+                .catch(error => handleError(error));
+        }
+    </script>
+</body>
+</html>
