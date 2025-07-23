@@ -1,18 +1,40 @@
-from flask import Flask, request, jsonify, render_template
+from flask import Flask, request, jsonify, render_template, Response, stream_template
 from flask_cors import CORS
+from flask_swagger_ui import get_swaggerui_blueprint
 from rags.data_retriever import DataRetriever
 from dotenv import load_dotenv
 import os
+import json
+import time
+from typing import Generator
 
 # Import VectorDB integration
-from memory.pinecone.api_integration import register_vectordb_routes
-from memory.pinecone.vectordb_manager import VectorDBManager
+from memory.pinecode.vectordb_manager import VectorDBManager
+
+# Import OrchestraAgent
+from agents.orchestra_agent import OrchestraAgent
 
 # Load environment variables from .env file
 load_dotenv()
 
 app = Flask(__name__)
 CORS(app)  # Enable CORS for all routes
+
+# Configure Swagger UI
+SWAGGER_URL = '/api/docs'  # URL for exposing Swagger UI
+API_URL = '/static/swagger.json'  # Our API url (can be a local file or url)
+
+# Call factory function to create our blueprint
+swaggerui_blueprint = get_swaggerui_blueprint(
+    SWAGGER_URL,  # Swagger UI static files will be mapped to '{SWAGGER_URL}/dist/'
+    API_URL,
+    config={  # Swagger UI config overrides
+        'app_name': "AI Agent API Documentation"
+    }
+)
+
+# Register Swagger UI blueprint with Flask app
+app.register_blueprint(swaggerui_blueprint, url_prefix=SWAGGER_URL)
 
 # List of supported providers
 SUPPORTED_PROVIDERS = {
@@ -24,22 +46,29 @@ SUPPORTED_PROVIDERS = {
 @app.route('/')
 def home():
     return jsonify({
-        "message": "Welcome to the Sales Maker API",
+        "message": "Welcome to the AI Agent API",
         "endpoints": {
-            "/embedding-model": "Get embedding model based on provider name",
-            "/providers": "Get list of supported providers",
-            "/health": "Check API health status",
-            "/client": "Web interface to interact with the API",
-            "/api/vectordb/health": "Check vector database health",
-            "/api/vectordb/add-documents": "Add documents to vector database",
-            "/api/vectordb/query": "Query the vector database",
-            "/api/vectordb/delete-index": "Delete the vector database index"
+            "/api/docs": "GET - Interactive API documentation with Swagger UI",
+            "/embedding/models": "GET - List available embedding models",
+            "/embedding/providers": "GET - List available LLM providers",
+            "/health": "GET - Health check",
+            "/api/agent/chat": "POST - Chat with Orchestra Agent (non-streaming)",
+            "/api/agent/chat/stream": "POST - Chat with Orchestra Agent (streaming)",
+            "/api/agent/travel": "POST - Travel planning with Orchestra Agent (non-streaming)",
+            "/api/agent/travel/stream": "POST - Travel planning with Orchestra Agent (streaming)",
+            "/vectordb/create": "POST - Create vector database",
+            "/vectordb/add": "POST - Add documents to vector database",
+            "/vectordb/search": "POST - Search vector database",
+            "/vectordb/delete": "DELETE - Delete vector database",
+            "/client": "GET - Web interface to interact with the API"
         }
     })
 
 @app.route('/client')
 def client():
     return render_template('api_client.html')
+
+# The /api/docs endpoint is now handled by the Swagger UI blueprint
 
 @app.route('/embedding-model', methods=['GET'])
 def get_embedding_model():
@@ -79,6 +108,213 @@ def health_check():
         "version": "1.0.0"
     })
 
+# Orchestra Agent endpoints
+@app.route('/api/agent/chat', methods=['POST'])
+def chat_with_agent():
+    """Non-streaming chat endpoint for Orchestra Agent."""
+    try:
+        data = request.get_json()
+        if not data or 'message' not in data:
+            return jsonify({"error": "Missing 'message' in request body"}), 400
+        
+        message = data['message']
+        llm_provider = data.get('llm_provider', 'openai')
+        temperature = data.get('temperature', 0.7)
+        system_prompt = data.get('system_prompt')
+        
+        # Initialize agent
+        agent = OrchestraAgent(
+            llm_prefix=llm_provider,
+            system_prompt=system_prompt,
+            temperature=temperature,
+            use_tools=False
+        )
+        
+        # Process query
+        response = agent.process_query(message, use_travel_agent=False)
+        
+        return jsonify({
+            "response": response,
+            "conversation_history": agent.get_conversation_history()
+        })
+        
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+@app.route('/api/agent/travel', methods=['POST'])
+def travel_with_agent():
+    """Non-streaming travel planning endpoint for Orchestra Agent."""
+    try:
+        data = request.get_json()
+        if not data or 'message' not in data:
+            return jsonify({"error": "Missing 'message' in request body"}), 400
+        
+        message = data['message']
+        llm_provider = data.get('llm_provider', 'openai')
+        temperature = data.get('temperature', 0.7)
+        system_prompt = data.get('system_prompt')
+        
+        # Initialize agent with tools
+        agent = OrchestraAgent(
+            llm_prefix=llm_provider,
+            system_prompt=system_prompt,
+            temperature=temperature,
+            use_tools=True
+        )
+        
+        # Process query with travel agent
+        response = agent.process_query(message, use_travel_agent=True)
+        
+        return jsonify({
+            "response": response,
+            "conversation_history": agent.get_conversation_history(),
+            "available_tools": [tool.name for tool in agent.get_available_tools()]
+        })
+        
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+def generate_streaming_response(agent: OrchestraAgent, message: str, use_travel_agent: bool = False) -> Generator[str, None, None]:
+    """Generate streaming response from Orchestra Agent."""
+    try:
+        # Add user message to history
+        agent.conversation_history.append({"role": "user", "content": message})
+        
+        if use_travel_agent and hasattr(agent, 'travel_agent_executor'):
+            # For travel agent, we'll simulate streaming by chunking the response
+            response = agent.travel_agent_executor.invoke({"input": message})
+            raw_response = response.get("output", "I couldn't process that request.")
+            
+            try:
+                parsed_response = agent._parse_travel_agent_response(raw_response)
+                agent.conversation_history.append({"role": "assistant", "content": parsed_response["response"]})
+                
+                # Stream the parsed response
+                yield f"data: {json.dumps({'type': 'thinking', 'content': parsed_response.get('thinking', '')})}\n\n"
+                time.sleep(0.1)
+                
+                # Stream function calls if any
+                for func_call in parsed_response.get('function_calls', []):
+                    yield f"data: {json.dumps({'type': 'function_call', 'content': {'name': func_call.name, 'arguments': func_call.arguments}})}\n\n"
+                    time.sleep(0.1)
+                
+                # Stream the final response in chunks
+                response_text = parsed_response["response"]
+                chunk_size = 20
+                for i in range(0, len(response_text), chunk_size):
+                    chunk = response_text[i:i+chunk_size]
+                    yield f"data: {json.dumps({'type': 'response', 'content': chunk})}\n\n"
+                    time.sleep(0.05)
+                    
+            except Exception as e:
+                agent.conversation_history.append({"role": "assistant", "content": raw_response})
+                # Stream raw response in chunks
+                chunk_size = 20
+                for i in range(0, len(raw_response), chunk_size):
+                    chunk = raw_response[i:i+chunk_size]
+                    yield f"data: {json.dumps({'type': 'response', 'content': chunk})}\n\n"
+                    time.sleep(0.05)
+        else:
+            # For standard conversation, use LLM streaming if available
+            messages = agent._convert_history_to_messages()
+            
+            # Check if LLM supports streaming
+            if hasattr(agent.llm, 'stream'):
+                response_content = ""
+                for chunk in agent.llm.stream(messages):
+                    if hasattr(chunk, 'content') and chunk.content:
+                        response_content += chunk.content
+                        yield f"data: {json.dumps({'type': 'response', 'content': chunk.content})}\n\n"
+                        time.sleep(0.01)
+                agent.conversation_history.append({"role": "assistant", "content": response_content})
+            else:
+                # Fallback: simulate streaming by chunking the response
+                response = agent.llm.invoke(messages)
+                response_content = response.content
+                agent.conversation_history.append({"role": "assistant", "content": response_content})
+                
+                chunk_size = 20
+                for i in range(0, len(response_content), chunk_size):
+                    chunk = response_content[i:i+chunk_size]
+                    yield f"data: {json.dumps({'type': 'response', 'content': chunk})}\n\n"
+                    time.sleep(0.05)
+        
+        # Send completion signal
+        yield f"data: {json.dumps({'type': 'complete'})}\n\n"
+        
+    except Exception as e:
+        yield f"data: {json.dumps({'type': 'error', 'content': str(e)})}\n\n"
+
+@app.route('/api/agent/chat/stream', methods=['POST'])
+def stream_chat_with_agent():
+    """Streaming chat endpoint for Orchestra Agent."""
+    try:
+        data = request.get_json()
+        if not data or 'message' not in data:
+            return jsonify({"error": "Missing 'message' in request body"}), 400
+        
+        message = data['message']
+        llm_provider = data.get('llm_provider', 'openai')
+        temperature = data.get('temperature', 0.7)
+        system_prompt = data.get('system_prompt')
+        
+        # Initialize agent
+        agent = OrchestraAgent(
+            llm_prefix=llm_provider,
+            system_prompt=system_prompt,
+            temperature=temperature,
+            use_tools=False
+        )
+        
+        return Response(
+            generate_streaming_response(agent, message, use_travel_agent=False),
+            mimetype='text/event-stream',
+            headers={
+                'Cache-Control': 'no-cache',
+                'Connection': 'keep-alive',
+                'Access-Control-Allow-Origin': '*',
+                'Access-Control-Allow-Headers': 'Content-Type'
+            }
+        )
+        
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+@app.route('/api/agent/travel/stream', methods=['POST'])
+def stream_travel_with_agent():
+    """Streaming travel planning endpoint for Orchestra Agent."""
+    try:
+        data = request.get_json()
+        if not data or 'message' not in data:
+            return jsonify({"error": "Missing 'message' in request body"}), 400
+        
+        message = data['message']
+        llm_provider = data.get('llm_provider', 'openai')
+        temperature = data.get('temperature', 0.7)
+        system_prompt = data.get('system_prompt')
+        
+        # Initialize agent with tools
+        agent = OrchestraAgent(
+            llm_prefix=llm_provider,
+            system_prompt=system_prompt,
+            temperature=temperature,
+            use_tools=True
+        )
+        
+        return Response(
+            generate_streaming_response(agent, message, use_travel_agent=True),
+            mimetype='text/event-stream',
+            headers={
+                'Cache-Control': 'no-cache',
+                'Connection': 'keep-alive',
+                'Access-Control-Allow-Origin': '*',
+                'Access-Control-Allow-Headers': 'Content-Type'
+            }
+        )
+        
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
 # Initialize VectorDBManager
 vector_db_manager = None
 try:
@@ -89,8 +325,7 @@ except Exception as e:
     print(f"Warning: Failed to initialize VectorDBManager: {str(e)}")
     print("Vector database endpoints will return errors until configuration is fixed.")
 
-# Register vector database routes
-register_vectordb_routes(app)
+# Vector database routes would be registered here if needed
 
 if __name__ == '__main__':
     # Get configuration from environment variables

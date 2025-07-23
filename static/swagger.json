@@ -1,0 +1,410 @@
+{
+  "swagger": "2.0",
+  "info": {
+    "title": "AI Agent API Documentation",
+    "version": "1.0.0",
+    "description": "API for interacting with AI agents and vector databases"
+  },
+  "basePath": "/",
+  "schemes": ["http", "https"],
+  "consumes": ["application/json"],
+  "produces": ["application/json"],
+  "paths": {
+    "/": {
+      "get": {
+        "summary": "Home endpoint",
+        "description": "Returns a welcome message and list of available endpoints",
+        "responses": {
+          "200": {
+            "description": "Welcome message and endpoints list"
+          }
+        }
+      }
+    },
+    "/api/agent/chat": {
+      "post": {
+        "summary": "Chat with Orchestra Agent (non-streaming)",
+        "description": "Send a message to the Orchestra Agent and receive a non-streaming response",
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "type": "object",
+              "properties": {
+                "message": {
+                  "type": "string",
+                  "description": "Your message to the agent"
+                },
+                "llm_provider": {
+                  "type": "string",
+                  "description": "LLM provider to use",
+                  "default": "openai"
+                },
+                "temperature": {
+                  "type": "number",
+                  "description": "Temperature for response generation",
+                  "default": 0.7
+                },
+                "system_prompt": {
+                  "type": "string",
+                  "description": "Optional custom system prompt"
+                }
+              }
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Agent's response and conversation history"
+          },
+          "400": {
+            "description": "Bad request"
+          },
+          "500": {
+            "description": "Server error"
+          }
+        }
+      }
+    },
+    "/api/agent/chat/stream": {
+      "post": {
+        "summary": "Chat with Orchestra Agent (streaming)",
+        "description": "Send a message to the Orchestra Agent and receive a streaming response",
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "type": "object",
+              "properties": {
+                "message": {
+                  "type": "string",
+                  "description": "Your message to the agent"
+                },
+                "llm_provider": {
+                  "type": "string",
+                  "description": "LLM provider to use",
+                  "default": "openai"
+                },
+                "temperature": {
+                  "type": "number",
+                  "description": "Temperature for response generation",
+                  "default": 0.7
+                },
+                "system_prompt": {
+                  "type": "string",
+                  "description": "Optional custom system prompt"
+                }
+              }
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Server-sent events (SSE) stream with JSON data"
+          },
+          "400": {
+            "description": "Bad request"
+          },
+          "500": {
+            "description": "Server error"
+          }
+        }
+      }
+    },
+    "/api/agent/travel": {
+      "post": {
+        "summary": "Travel planning with Orchestra Agent (non-streaming)",
+        "description": "Send a travel query to the Orchestra Agent and receive a non-streaming response",
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "type": "object",
+              "properties": {
+                "message": {
+                  "type": "string",
+                  "description": "Your travel query"
+                },
+                "llm_provider": {
+                  "type": "string",
+                  "description": "LLM provider to use",
+                  "default": "openai"
+                },
+                "temperature": {
+                  "type": "number",
+                  "description": "Temperature for response generation",
+                  "default": 0.7
+                },
+                "system_prompt": {
+                  "type": "string",
+                  "description": "Optional custom system prompt"
+                }
+              }
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Agent's travel plan response, conversation history, and available tools"
+          },
+          "400": {
+            "description": "Bad request"
+          },
+          "500": {
+            "description": "Server error"
+          }
+        }
+      }
+    },
+    "/api/agent/travel/stream": {
+      "post": {
+        "summary": "Travel planning with Orchestra Agent (streaming)",
+        "description": "Send a travel query to the Orchestra Agent and receive a streaming response",
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "type": "object",
+              "properties": {
+                "message": {
+                  "type": "string",
+                  "description": "Your travel query"
+                },
+                "llm_provider": {
+                  "type": "string",
+                  "description": "LLM provider to use",
+                  "default": "openai"
+                },
+                "temperature": {
+                  "type": "number",
+                  "description": "Temperature for response generation",
+                  "default": 0.7
+                },
+                "system_prompt": {
+                  "type": "string",
+                  "description": "Optional custom system prompt"
+                }
+              }
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Server-sent events (SSE) stream with JSON data"
+          },
+          "400": {
+            "description": "Bad request"
+          },
+          "500": {
+            "description": "Server error"
+          }
+        }
+      }
+    },
+    "/embedding-model": {
+      "get": {
+        "summary": "Get embedding model information",
+        "description": "Get information about the embedding model for a specific provider",
+        "parameters": [
+          {
+            "name": "provider",
+            "in": "query",
+            "required": true,
+            "type": "string",
+            "description": "Provider name"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Embedding model information"
+          },
+          "400": {
+            "description": "Bad request"
+          }
+        }
+      }
+    },
+    "/providers": {
+      "get": {
+        "summary": "Get supported providers",
+        "description": "Get a list of supported LLM providers",
+        "responses": {
+          "200": {
+            "description": "List of supported providers"
+          }
+        }
+      }
+    },
+    "/health": {
+      "get": {
+        "summary": "Health check",
+        "description": "Check the health status of the API",
+        "responses": {
+          "200": {
+            "description": "Health status"
+          }
+        }
+      }
+    },
+    "/vectordb/create": {
+      "post": {
+        "summary": "Create vector database",
+        "description": "Create a new vector database index",
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "type": "object",
+              "properties": {
+                "index_name": {
+                  "type": "string",
+                  "description": "Name of the index to create"
+                },
+                "dimension": {
+                  "type": "integer",
+                  "description": "Dimension of the vectors"
+                }
+              }
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Creation status"
+          },
+          "400": {
+            "description": "Bad request"
+          },
+          "500": {
+            "description": "Server error"
+          }
+        }
+      }
+    },
+    "/vectordb/add": {
+      "post": {
+        "summary": "Add documents to vector database",
+        "description": "Add documents to an existing vector database index",
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "type": "object",
+              "properties": {
+                "index_name": {
+                  "type": "string",
+                  "description": "Name of the index"
+                },
+                "documents": {
+                  "type": "array",
+                  "description": "Array of documents to add",
+                  "items": {
+                    "type": "object"
+                  }
+                }
+              }
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Addition status"
+          },
+          "400": {
+            "description": "Bad request"
+          },
+          "500": {
+            "description": "Server error"
+          }
+        }
+      }
+    },
+    "/vectordb/search": {
+      "post": {
+        "summary": "Search vector database",
+        "description": "Search an existing vector database index",
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "type": "object",
+              "properties": {
+                "index_name": {
+                  "type": "string",
+                  "description": "Name of the index"
+                },
+                "query": {
+                  "type": "string",
+                  "description": "Search query"
+                },
+                "top_k": {
+                  "type": "integer",
+                  "description": "Number of results to return",
+                  "default": 5
+                }
+              }
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Search results"
+          },
+          "400": {
+            "description": "Bad request"
+          },
+          "500": {
+            "description": "Server error"
+          }
+        }
+      }
+    },
+    "/vectordb/delete": {
+      "delete": {
+        "summary": "Delete vector database",
+        "description": "Delete an existing vector database index",
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "type": "object",
+              "properties": {
+                "index_name": {
+                  "type": "string",
+                  "description": "Name of the index to delete"
+                }
+              }
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Deletion status"
+          },
+          "400": {
+            "description": "Bad request"
+          },
+          "500": {
+            "description": "Server error"
+          }
+        }
+      }
+    }
+  }
+}
